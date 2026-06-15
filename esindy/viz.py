@@ -41,6 +41,25 @@ def plot_phase_portrait(X, ax=None):
     return ax.figure
 
 
+def plot_f1_vs_noise(curves: dict, ax=None, title: str | None = None):
+    """Plot support-F1 vs noise level for several named methods.
+
+    ``curves`` maps a method label to ``(noise_levels, f1_values)``. Returns the Figure.
+    """
+    if ax is None:
+        _, ax = plt.subplots(figsize=(5, 3.5))
+    for label, (levels, f1s) in curves.items():
+        ax.plot(levels, f1s, marker="o", label=label)
+    ax.set_xlabel("noise level (fraction of std)")
+    ax.set_ylabel("support F1")
+    ax.set_ylim(0, 1.05)
+    if title:
+        ax.set_title(title)
+    ax.legend()
+    ax.grid(alpha=0.3)
+    return ax.figure
+
+
 def plot_inclusion_probabilities(model, threshold: float | None = None):
     """Bar chart of E-SINDy inclusion probabilities per state. Returns the Figure."""
     probs = model.inclusion_probabilities_

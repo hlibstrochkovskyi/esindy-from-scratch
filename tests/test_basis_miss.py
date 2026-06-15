@@ -58,9 +58,9 @@ def test_adding_sin_to_the_library_fixes_recovery():
     library = ConcatLibrary(
         [PolynomialLibrary(degree=1), CustomLibrary([np.sin], [lambda s: f"sin({s})"])]
     )
-    model = SINDy(
-        library=library, optimizer=STLSQ(threshold=0.05), input_names=STATE_NAMES
-    ).fit(X, t=t, x_dot=x_dot)
+    model = SINDy(library=library, optimizer=STLSQ(threshold=0.05), input_names=STATE_NAMES).fit(
+        X, t=t, x_dot=x_dot
+    )
 
     names = model.feature_names_
     # omega' is now exactly -sin(theta): a single term, coefficient -1.

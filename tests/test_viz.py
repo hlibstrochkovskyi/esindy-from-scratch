@@ -26,6 +26,15 @@ def test_plot_phase_portrait_3d_runs():
     assert fig is not None
 
 
+def test_plot_f1_vs_noise_draws_a_line_per_method():
+    curves = {
+        "SINDy": ([0.0, 0.1, 0.2], [1.0, 0.8, 0.6]),
+        "E-SINDy": ([0.0, 0.1, 0.2], [1.0, 0.95, 0.9]),
+    }
+    fig = viz.plot_f1_vs_noise(curves, title="demo")
+    assert len(fig.axes[0].get_lines()) == 2
+
+
 def test_plot_inclusion_probabilities_has_axis_per_state():
     system = datasets.get_system("lotka_volterra")
     traj = datasets.simulate(system)
