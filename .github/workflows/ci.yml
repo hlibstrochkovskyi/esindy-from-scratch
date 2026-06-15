@@ -17,7 +17,7 @@ jobs:
           python-version: "3.12"
 
       - name: Sync dependencies
-        run: uv sync
+        run: uv sync --extra viz
 
       - name: Lint
         run: uv run ruff check .

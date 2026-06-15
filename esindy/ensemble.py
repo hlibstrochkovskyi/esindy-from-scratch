@@ -28,6 +28,7 @@ from joblib import Parallel, delayed, parallel_config
 
 from esindy._seed import as_generator, child_seeds
 from esindy.differentiation import Differentiator, FiniteDifference
+from esindy.equations import format_equations, format_equations_latex
 from esindy.library import BaseLibrary, PolynomialLibrary
 from esindy.optimizers import STLSQ, Optimizer
 
@@ -189,14 +190,12 @@ class ESINDy:
 
     def equations(self, precision: int = 3) -> list[str]:
         """Render the aggregated dynamics, one string per state (mirrors SINDy)."""
-        eqs = []
-        for k, state in enumerate(self.input_names_):
-            terms = []
-            for name, coef in zip(self.feature_names_, self.coefficients_[:, k], strict=True):
-                if coef == 0.0:
-                    continue
-                value = f"{coef:+.{precision}f}"
-                terms.append(value if name == "1" else f"{value} {name}")
-            rhs = " ".join(terms).lstrip("+").strip() if terms else "0"
-            eqs.append(f"{state}' = {rhs}")
-        return eqs
+        return format_equations(
+            self.feature_names_, self.coefficients_, self.input_names_, precision
+        )
+
+    def equations_latex(self, precision: int = 3) -> list[str]:
+        """Render the aggregated dynamics as LaTeX, one string per state."""
+        return format_equations_latex(
+            self.feature_names_, self.coefficients_, self.input_names_, precision
+        )

@@ -15,6 +15,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 from esindy.differentiation import Differentiator, FiniteDifference
+from esindy.equations import format_equations, format_equations_latex
 from esindy.library import BaseLibrary, PolynomialLibrary
 from esindy.optimizers import STLSQ, Optimizer
 
@@ -85,17 +86,15 @@ class SINDy:
 
     def equations(self, precision: int = 3) -> list[str]:
         """Render the discovered dynamics, one string per state variable."""
-        eqs = []
-        for k, state in enumerate(self.input_names_):
-            terms = []
-            for name, coef in zip(self.feature_names_, self.coefficients_[:, k], strict=True):
-                if coef == 0.0:
-                    continue
-                value = f"{coef:+.{precision}f}"
-                terms.append(value if name == "1" else f"{value} {name}")
-            rhs = " ".join(terms).lstrip("+").strip() if terms else "0"
-            eqs.append(f"{state}' = {rhs}")
-        return eqs
+        return format_equations(
+            self.feature_names_, self.coefficients_, self.input_names_, precision
+        )
+
+    def equations_latex(self, precision: int = 3) -> list[str]:
+        """Render the discovered dynamics as LaTeX, one string per state variable."""
+        return format_equations_latex(
+            self.feature_names_, self.coefficients_, self.input_names_, precision
+        )
 
     def print(self, precision: int = 3) -> None:
         for line in self.equations(precision):
