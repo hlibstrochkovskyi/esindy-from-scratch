@@ -208,6 +208,7 @@ name = "esindy"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "joblib" },
     { name = "numpy" },
     { name = "scipy" },
 ]
@@ -231,6 +232,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "joblib", specifier = ">=1.3" },
     { name = "matplotlib", marker = "extra == 'viz'", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pysindy", marker = "extra == 'oracle'", specifier = ">=1.7" },

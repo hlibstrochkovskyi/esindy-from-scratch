@@ -24,6 +24,7 @@ import warnings
 from collections.abc import Sequence
 
 import numpy as np
+from joblib import Parallel, delayed, parallel_config
 
 from esindy._seed import as_generator, child_seeds
 from esindy.differentiation import Differentiator, FiniteDifference
@@ -61,6 +62,39 @@ def aggregate_bootstraps(
     return coefficients, inclusion
 
 
+def _clone_optimizer(optimizer: Optimizer) -> Optimizer:
+    # Each bootstrap needs its own optimizer instance (fresh coef_); rebuild from the
+    # template's public attributes rather than sharing mutable state across runs.
+    return type(optimizer)(**{k: v for k, v in vars(optimizer).items() if not k.endswith("_")})
+
+
+def _run_one_bootstrap(
+    child_seed,
+    Theta: np.ndarray,
+    x_dot: np.ndarray,
+    optimizer: Optimizer,
+    *,
+    n_subset: int,
+    replace: bool,
+    library_ensemble: bool,
+    n_candidates_to_drop: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """One bootstrap fit. Module-level and pure so it is picklable for the loky backend.
+
+    The RNG is rebuilt from ``child_seed`` (an index-derived ``SeedSequence``), which is
+    what makes the result independent of execution order — so parallel == serial.
+    """
+    m, p = Theta.shape
+    rng = as_generator(child_seed)
+    rows = rng.integers(0, m, size=n_subset) if replace else rng.permutation(m)[:n_subset]
+    if library_ensemble and n_candidates_to_drop > 0:
+        cols = np.sort(rng.choice(p, size=p - n_candidates_to_drop, replace=False))
+    else:
+        cols = np.arange(p)
+    optimizer = _clone_optimizer(optimizer).fit(Theta[np.ix_(rows, cols)], x_dot[rows])
+    return cols, optimizer.coef_
+
+
 class ESINDy:
     """Bootstrap-ensemble SINDy with a SINDy-compatible fit/attribute interface."""
 
@@ -78,6 +112,7 @@ class ESINDy:
         n_candidates_to_drop: int = 0,
         inclusion_threshold: float = 0.6,
         seed=0,
+        n_jobs: int = 1,
     ) -> None:
         self.library = library if library is not None else PolynomialLibrary(degree=2)
         self.optimizer = optimizer if optimizer is not None else STLSQ()
@@ -92,6 +127,7 @@ class ESINDy:
         self.n_candidates_to_drop = n_candidates_to_drop
         self.inclusion_threshold = inclusion_threshold
         self.seed = seed
+        self.n_jobs = n_jobs
 
     def fit(
         self,
@@ -118,16 +154,11 @@ class ESINDy:
         if self.library_ensemble and self.n_candidates_to_drop >= p:
             raise ValueError("n_candidates_to_drop must be < number of library terms")
 
+        results = self._run_bootstraps(Theta, x_dot, n_subset)
+
         samples = np.full((self.n_models, p, n_targets), np.nan)
-        for b, child in enumerate(child_seeds(self.seed, self.n_models)):
-            rng = as_generator(child)
-            if self.replace:
-                rows = rng.integers(0, m, size=n_subset)
-            else:
-                rows = rng.permutation(m)[:n_subset]
-            cols = self._select_columns(rng, p)
-            optimizer = self._clone_optimizer().fit(Theta[np.ix_(rows, cols)], x_dot[rows])
-            samples[b, cols, :] = optimizer.coef_
+        for b, (cols, coef_sub) in enumerate(results):
+            samples[b, cols, :] = coef_sub
 
         self.coef_samples_ = samples
         self.coefficients_, self.inclusion_probabilities_ = aggregate_bootstraps(
@@ -135,17 +166,26 @@ class ESINDy:
         )
         return self
 
-    def _select_columns(self, rng: np.random.Generator, p: int) -> np.ndarray:
-        if not self.library_ensemble or self.n_candidates_to_drop == 0:
-            return np.arange(p)
-        keep = p - self.n_candidates_to_drop
-        return np.sort(rng.choice(p, size=keep, replace=False))
-
-    def _clone_optimizer(self) -> Optimizer:
-        # Each bootstrap needs its own optimizer instance (fresh coef_); rebuild from the
-        # template's public attributes rather than sharing mutable state across runs.
-        opt = self.optimizer
-        return type(opt)(**{k: v for k, v in vars(opt).items() if not k.endswith("_")})
+    def _run_bootstraps(
+        self, Theta: np.ndarray, x_dot: np.ndarray, n_subset: int
+    ) -> list[tuple[np.ndarray, np.ndarray]]:
+        seeds = child_seeds(self.seed, self.n_models)
+        kwargs = dict(
+            n_subset=n_subset,
+            replace=self.replace,
+            library_ensemble=self.library_ensemble,
+            n_candidates_to_drop=self.n_candidates_to_drop,
+        )
+        if self.n_jobs == 1:
+            return [_run_one_bootstrap(s, Theta, x_dot, self.optimizer, **kwargs) for s in seeds]
+        # Pin BLAS to one thread per worker so the loky processes don't oversubscribe the
+        # CPU (each STLSQ fit already calls into multithreaded LAPACK). joblib preserves
+        # submission order, so scattering results by index stays deterministic.
+        with parallel_config(backend="loky", inner_max_num_threads=1):
+            return Parallel(n_jobs=self.n_jobs)(
+                delayed(_run_one_bootstrap)(s, Theta, x_dot, self.optimizer, **kwargs)
+                for s in seeds
+            )
 
     def equations(self, precision: int = 3) -> list[str]:
         """Render the aggregated dynamics, one string per state (mirrors SINDy)."""
