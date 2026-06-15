@@ -34,15 +34,45 @@ uv run ruff check .
 uv run ruff format .
 ```
 
-## Status
+## Quick example
 
-Under active development.
-- **M0 — scaffolding & CI** ✅
-- **M1 — datasets + ground truth** ✅ (`linear2d`, `lotka_volterra`, `lorenz`)
-- **M2 — candidate library** ✅ (polynomial + custom/trig + concat)
-- **M3 — differentiation** ✅ (finite-difference, Savitzky–Golay, spline)
-- **M4 — STLSQ optimizer** ✅ (+ column normalization, ridge)
-- **M5 — SINDy end-to-end** ✅ (fit/predict/simulate/equations + metrics)
-- **M6 — noise + breakdown baseline** ✅ (noise-sweep harness)
-- **M7 — E-SINDy (serial)** ✅ (data/library bagging, inclusion probabilities)
-- **M8 — parallelization + benchmark** ← next
+```python
+from esindy import datasets, SINDy, STLSQ
+
+system = datasets.get_system("lorenz")
+traj = datasets.simulate(system)
+
+model = SINDy(optimizer=STLSQ(threshold=0.5), input_names=system.state_names)
+model.fit(traj.X, t=traj.t, x_dot=traj.x_dot_exact)
+model.print()
+# x' = -10.000 x + 10.000 y
+# y' = 28.000 x - 1.000 y - 1.000 x z
+# z' = -2.667 z + 1.000 x y
+```
+
+For noisy data, reach for `ESINDy` (bootstrap ensemble) or `WeakSINDy` (integral
+formulation) — both share the same interface.
+
+## Status — all milestones complete
+
+| # | Milestone | Module |
+|---|-----------|--------|
+| M0 | Scaffolding & CI | tooling, `_seed.py` |
+| M1 | Datasets + ground truth | `datasets.py` |
+| M2 | Candidate library | `library.py` |
+| M3 | Differentiation | `differentiation.py` |
+| M4 | STLSQ optimizer | `optimizers.py` |
+| M5 | SINDy end-to-end | `model.py`, `metrics.py` |
+| M6 | Noise + breakdown baseline | `experiments.py` |
+| M7 | E-SINDy (serial) | `ensemble.py` |
+| M8 | Parallelization + benchmark | `ensemble.py`, [`docs/benchmarks.md`](docs/benchmarks.md) |
+| M9 | Equation output + viz | `equations.py`, `viz.py` |
+| M10 | Weak / integral formulation | `weak.py` |
+| — | PySINDy oracle validation | `tests/test_oracle.py` |
+
+Headline results, all asserted by the test suite:
+- Vanilla SINDy recovers `linear2d`, `lotka_volterra`, and `lorenz` exactly on clean data.
+- Vanilla SINDy loses exact support on Lorenz by ~5% noise (the breakdown baseline).
+- E-SINDy beats vanilla on a rich library under noise (F1 1.00 vs 0.73 at 2% noise).
+- The weak form beats pointwise SINDy at every noise level on Lorenz.
+- Our STLSQ and SINDy match PySINDy to 1e-8.
