@@ -40,4 +40,5 @@ Under active development.
 - **M0 — scaffolding & CI** ✅
 - **M1 — datasets + ground truth** ✅ (`linear2d`, `lotka_volterra`, `lorenz`)
 - **M2 — candidate library** ✅ (polynomial + custom/trig + concat)
-- **M3 — differentiation** ← next (the hard milestone)
+- **M3 — differentiation** ✅ (finite-difference, Savitzky–Golay, spline)
+- **M4 — STLSQ optimizer** ← next
