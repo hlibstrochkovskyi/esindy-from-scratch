@@ -41,4 +41,8 @@ Under active development.
 - **M1 — datasets + ground truth** ✅ (`linear2d`, `lotka_volterra`, `lorenz`)
 - **M2 — candidate library** ✅ (polynomial + custom/trig + concat)
 - **M3 — differentiation** ✅ (finite-difference, Savitzky–Golay, spline)
-- **M4 — STLSQ optimizer** ← next
+- **M4 — STLSQ optimizer** ✅ (+ column normalization, ridge)
+- **M5 — SINDy end-to-end** ✅ (fit/predict/simulate/equations + metrics)
+- **M6 — noise + breakdown baseline** ✅ (noise-sweep harness)
+- **M7 — E-SINDy (serial)** ✅ (data/library bagging, inclusion probabilities)
+- **M8 — parallelization + benchmark** ← next
